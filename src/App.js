@@ -1,18 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Product from './components/Product';
 import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 
 function App() {
-  const [products, setProducts] = useState([
-    { id: 1, name: 'Product 1', price: 10 },
-    { id: 2, name: 'Product 2', price: 15 },
-    { id: 3, name: 'Product 3', price: 20 },
-  ]);
+  const [products, setProducts] = useState([]);
   const [newProduct, setNewProduct] = useState({ name: '', price: '' });
   const [editingProduct, setEditingProduct] = useState(null);
   const [cartItems, setCartItems] = useState([]);
   const [showCheckout, setShowCheckout] = useState(false);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = () => {
+    fetch('http://localhost:5000/api/products')
+      .then(response => response.json())
+      .then(data => setProducts(data))
+      .catch(error => console.error('Error fetching products:', error));
+  };
   const addToCart = (product) => {
     const existingItem = cartItems.find((item) => item.id === product.id);
     if (existingItem) {
@@ -49,26 +56,49 @@ function App() {
 
   const addProduct = () => {
     if (newProduct.name && newProduct.price) {
-      const id = Math.max(...products.map(p => p.id)) + 1;
-      setProducts([...products, { id, name: newProduct.name, price: parseFloat(newProduct.price) }]);
-      setNewProduct({ name: '', price: '' });
+      fetch('http://localhost:5000/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newProduct.name, price: parseFloat(newProduct.price) })
+      })
+      .then(response => response.json())
+      .then(data => {
+        setProducts([...products, data]);
+        setNewProduct({ name: '', price: '' });
+      })
+      .catch(error => console.error('Error adding product:', error));
     }
   };
 
   const editProduct = (id, updatedProduct) => {
-    setProducts(products.map(p => p.id === id ? { ...p, ...updatedProduct } : p));
-    setEditingProduct(null);
+    fetch(`http://localhost:5000/api/products/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedProduct)
+    })
+    .then(response => response.json())
+    .then(data => {
+      setProducts(products.map(p => p.id === id ? data : p));
+      setEditingProduct(null);
+    })
+    .catch(error => console.error('Error editing product:', error));
   };
 
   const deleteProduct = (id) => {
-    setProducts(products.filter(p => p.id !== id));
+    fetch(`http://localhost:5000/api/products/${id}`, {
+      method: 'DELETE'
+    })
+    .then(() => {
+      setProducts(products.filter(p => p.id !== id));
+    })
+    .catch(error => console.error('Error deleting product:', error));
   };
   return (
     <div className="app">
       <div className="product-list">
         <h2>Products</h2>
         {products.map((product) => (
-          <Product key={product.id} product={product} onAddToCart={addToCart} />
+          <Product key={product.id} product={product} onAddToCart={addToCart} onEdit={() => setEditingProduct(product)} onDelete={deleteProduct} />
         ))}
       </div>
       <div className="management">
